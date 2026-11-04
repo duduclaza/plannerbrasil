@@ -114,6 +114,7 @@ export interface FurnitureItem {
   rotation: number;
   scale: { x: number; y: number; z: number };
   // Per-item overrides (optional — falls back to catalog defaults)
+  elevation?: number; // cm off floor (3D elevation)
   color?: string;
   width?: number;   // cm
   depth?: number;   // cm

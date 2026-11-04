@@ -539,6 +539,15 @@
   let floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // y=0 plane
   let ghostIntersection = new THREE.Vector3();
 
+  // 3D Electrical Tool (Conduits & Wall boxes)
+  let electricalToolActive = $state(false);
+  let electricalPanelOpen = $state(false);
+  let selectedElectricalType = $state<'conduit_flexible' | 'conduit_rigid' | 'conduit_vertical' | 'junction_box' | 'wall_outlet' | 'wall_switch' | 'electrical_panel'>('conduit_flexible');
+  let selectedConduitColor = $state<'#22c55e' | '#0f172a' | '#eab308' | '#2563eb'>('#22c55e');
+  let conduitDrawingStart = $state<{ x: number; y: number; z: number; wallId: string } | null>(null);
+  let conduitPreviewMesh: THREE.Line | null = null;
+  let electricalGhostGroup: THREE.Group | null = null;
+
   const TIME_PRESETS = {
     morning: { azimuth: 90, elevation: 25, ambient: 0.3, sunColor: 0xffe0a0, sunIntensity: 0.8, skyTop: '#f5a86c', skyMid: '#fdd89b', skyHorizon: '#ffe8c0', hemiSky: '#fdd89b', hemiGround: '#9b8060' },
     noon:    { azimuth: 180, elevation: 80, ambient: 0.45, sunColor: 0xffffff, sunIntensity: 1.2, skyTop: '#3a7bd5', skyMid: '#87ceeb', skyHorizon: '#c8e8f8', hemiSky: '#87ceeb', hemiGround: '#8b7355' },
@@ -645,6 +654,18 @@
     if (hasOpenModal()) return;
     // ESC exits edit mode
     if (event.code === 'Escape' && editMode && !walkthroughMode) {
+      if (electricalToolActive) {
+        if (conduitDrawingStart) {
+          conduitDrawingStart = null;
+          removeConduitPreview();
+          return;
+        }
+        electricalToolActive = false;
+        electricalPanelOpen = false;
+        removeElectricalGhost();
+        removeConduitPreview();
+        return;
+      }
       if (furniturePlacementMode) {
         furniturePlacementMode = false;
         furniturePickerOpen = false;
@@ -865,6 +886,77 @@
         return;
       }
 
+      // 3D Electrical placement & conduit drawing on walls
+      if (electricalToolActive) {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(wallGroup.children, false);
+        const wallHit = intersects.find(i => i.object.userData.wallId);
+        if (wallHit) {
+          const hitWallId = wallHit.object.userData.wallId as string;
+          const curFloor = get(activeFloor);
+          const wallObj = curFloor?.walls.find(w => w.id === hitWallId);
+          let wallAngle = 0;
+          if (wallObj) {
+            wallAngle = Math.atan2(wallObj.end.y - wallObj.start.y, wallObj.end.x - wallObj.start.x) * 180 / Math.PI;
+          }
+
+          if (selectedElectricalType === 'conduit_flexible' || selectedElectricalType === 'conduit_rigid') {
+            if (!conduitDrawingStart) {
+              conduitDrawingStart = { x: wallHit.point.x, y: wallHit.point.y, z: wallHit.point.z, wallId: hitWallId };
+            } else {
+              const pA = conduitDrawingStart;
+              const pB = wallHit.point;
+              const dx = pB.x - pA.x;
+              const dz = pB.z - pA.z;
+              const dy = Math.abs(pB.y - pA.y);
+              const dist2D = Math.hypot(dx, dz);
+
+              if (dist2D < 12 && dy > 10) {
+                // Vertical conduit drop
+                const midX = (pA.x + pB.x) / 2;
+                const midZ = (pA.z + pB.z) / 2;
+                const minY = Math.min(pA.y, pB.y);
+                addFurniture('conduit_vertical', { x: midX, y: midZ }, {
+                  height: Math.max(10, Math.round(dy)),
+                  rotation: wallAngle,
+                  elevation: Math.round(minY),
+                  color: selectedConduitColor,
+                });
+              } else {
+                // Horizontal / angled conduit segment
+                const midX = (pA.x + pB.x) / 2;
+                const midZ = (pA.z + pB.z) / 2;
+                const midY = (pA.y + pB.y) / 2;
+                const runAngle = Math.atan2(dz, dx) * 180 / Math.PI;
+                addFurniture(selectedElectricalType, { x: midX, y: midZ }, {
+                  width: Math.max(10, Math.round(dist2D)),
+                  rotation: runAngle,
+                  elevation: Math.round(midY),
+                  color: selectedConduitColor,
+                });
+              }
+              conduitDrawingStart = null;
+              removeConduitPreview();
+            }
+          } else if (selectedElectricalType === 'conduit_vertical') {
+            addFurniture('conduit_vertical', { x: wallHit.point.x, y: wallHit.point.z }, {
+              height: 120,
+              rotation: wallAngle,
+              elevation: Math.max(0, Math.round(wallHit.point.y - 60)),
+              color: selectedConduitColor,
+            });
+          } else {
+            // Boxes: junction_box, wall_outlet, wall_switch, electrical_panel
+            addFurniture(selectedElectricalType, { x: wallHit.point.x, y: wallHit.point.z }, {
+              rotation: wallAngle,
+              elevation: Math.round(wallHit.point.y),
+              color: selectedConduitColor,
+            });
+          }
+        }
+        return;
+      }
+
       const intersects = raycaster.intersectObjects(wallGroup.children, false);
       let hitWallId: string | null = null;
       for (const hit of intersects) {
@@ -879,6 +971,51 @@
     // Hover highlight in edit mode
     let hoveredMesh: THREE.Mesh | null = null;
     renderer.domElement.addEventListener('mousemove', (e) => {
+      // Electrical tool hover preview
+      if (editMode && electricalToolActive) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(wallGroup.children, false);
+        const wallHit = intersects.find(i => i.object.userData.wallId);
+
+        if (wallHit) {
+          renderer.domElement.style.cursor = 'crosshair';
+          const hitWallId = wallHit.object.userData.wallId as string;
+          const curFloor = get(activeFloor);
+          const wallObj = curFloor?.walls.find(w => w.id === hitWallId);
+          let wallAngle = 0;
+          if (wallObj) {
+            wallAngle = Math.atan2(wallObj.end.y - wallObj.start.y, wallObj.end.x - wallObj.start.x) * 180 / Math.PI;
+          }
+
+          if (conduitDrawingStart) {
+            updateConduitPreview(
+              new THREE.Vector3(conduitDrawingStart.x, conduitDrawingStart.y, conduitDrawingStart.z),
+              wallHit.point,
+              selectedConduitColor
+            );
+          } else {
+            if (!electricalGhostGroup) {
+              createElectricalGhost(selectedElectricalType, selectedConduitColor);
+            }
+            if (electricalGhostGroup) {
+              electricalGhostGroup.position.set(wallHit.point.x, wallHit.point.y, wallHit.point.z);
+              electricalGhostGroup.rotation.y = -wallAngle * Math.PI / 180;
+              electricalGhostGroup.visible = true;
+            }
+          }
+        } else {
+          if (electricalGhostGroup) electricalGhostGroup.visible = false;
+        }
+        markSceneDirty();
+        return;
+      } else if (electricalGhostGroup?.visible) {
+        electricalGhostGroup.visible = false;
+        markSceneDirty();
+      }
+
       // Furniture placement ghost preview
       if (editMode && furniturePlacementMode && selectedCatalogId) {
         const rect = renderer.domElement.getBoundingClientRect();
@@ -1004,6 +1141,69 @@
       ghostGroup = null;
       markSceneDirty();
     }
+  }
+
+  function createElectricalGhost(type: string, color: string) {
+    removeElectricalGhost();
+    const cat = getCatalogItem(type);
+    if (!cat) return;
+    const model = createFurnitureModelWithGLB(type, cat, markSceneDirty, { ghost: true, color });
+    model.visible = false;
+    electricalGhostGroup = model;
+    scene.add(electricalGhostGroup);
+  }
+
+  function removeElectricalGhost() {
+    if (electricalGhostGroup) {
+      scene.remove(electricalGhostGroup);
+      disposeModel(electricalGhostGroup);
+      electricalGhostGroup = null;
+      markSceneDirty();
+    }
+  }
+
+  function updateConduitPreview(p1: THREE.Vector3, p2: THREE.Vector3, color: string) {
+    if (!conduitPreviewMesh) {
+      const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(color), linewidth: 4, depthTest: false });
+      conduitPreviewMesh = new THREE.Line(geo, mat);
+      conduitPreviewMesh.renderOrder = 999;
+      scene.add(conduitPreviewMesh);
+    } else {
+      conduitPreviewMesh.geometry.setFromPoints([p1, p2]);
+      (conduitPreviewMesh.material as THREE.LineBasicMaterial).color.set(color);
+    }
+    markSceneDirty();
+  }
+
+  function removeConduitPreview() {
+    if (conduitPreviewMesh) {
+      scene.remove(conduitPreviewMesh);
+      conduitPreviewMesh.geometry.dispose();
+      (conduitPreviewMesh.material as THREE.Material).dispose();
+      conduitPreviewMesh = null;
+      markSceneDirty();
+    }
+  }
+
+  function toggleElectricalMode() {
+    electricalToolActive = !electricalToolActive;
+    if (electricalToolActive) {
+      editMode = true;
+      electricalPanelOpen = true;
+      furniturePlacementMode = false;
+      furniturePickerOpen = false;
+      cameraPlacementMode = false;
+      if (walkthroughMode) exitWalkthroughMode();
+      removeGhostPreview();
+      createElectricalGhost(selectedElectricalType, selectedConduitColor);
+    } else {
+      electricalPanelOpen = false;
+      conduitDrawingStart = null;
+      removeElectricalGhost();
+      removeConduitPreview();
+    }
+    markSceneDirty();
   }
 
   function autoCenterCamera() {
@@ -2001,6 +2201,8 @@
       stopAISettings();
       stopTextures();
       resizeObs.disconnect();
+      removeElectricalGhost();
+      removeConduitPreview();
       unsub();
       stopSettings();
       unsubSel();
@@ -2409,13 +2611,108 @@
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
-        {#if furniturePlacementMode}
+        {#if electricalToolActive}
+          {#if conduitDrawingStart}
+            {$t('viewerElectrical.hintConduitEnd')}
+          {:else if selectedElectricalType === 'conduit_flexible' || selectedElectricalType === 'conduit_rigid'}
+            {$t('viewerElectrical.hintConduitStart')}
+          {:else}
+            {$t('viewerElectrical.hintBox')}
+          {/if}
+        {:else if furniturePlacementMode}
           {$t('viewerFurniture.hint', { name: selectedCatalogId ? furnitureName(selectedCatalogId, $locale) : $t('viewerFurniture.fallback') })}
         {:else}
           {$t('viewerFurniture.paint')}
         {/if}
       </div>
     </div>
+
+    <!-- 3D Electrical Placement Toggle -->
+    <button
+      onclick={toggleElectricalMode}
+      class="absolute top-16 right-40 z-50 p-2 rounded-lg transition-colors {electricalToolActive ? 'bg-amber-500 text-white ring-2 ring-amber-300' : 'bg-black/70 text-white hover:bg-black/80'}"
+      title={electricalToolActive ? $t('viewerElectrical.exit') : $t('viewerElectrical.button')}
+      aria-label={electricalToolActive ? $t('viewerElectrical.exit') : $t('viewerElectrical.button')}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    </button>
+
+    <!-- 3D Electrical Panel -->
+    {#if electricalToolActive && electricalPanelOpen}
+      <div class="absolute top-4 left-4 z-50 bg-black/85 text-white rounded-lg backdrop-blur-sm w-64 max-h-[75vh] flex flex-col overflow-hidden select-none shadow-xl border border-white/10">
+        <div class="p-2.5 border-b border-white/10 flex items-center justify-between">
+          <span class="font-semibold text-sm flex items-center gap-1.5 text-amber-400">
+            <span>⚡</span>
+            <span>{$t('viewerElectrical.title')}</span>
+          </span>
+          <button onclick={() => { electricalPanelOpen = false; }} aria-label={$t('viewerElectrical.close')} class="text-white/50 hover:text-white text-lg leading-none">&times;</button>
+        </div>
+
+        <!-- Conduit Color Selection -->
+        <div class="p-2.5 border-b border-white/10 space-y-1.5">
+          <span class="text-[10px] text-white/60 uppercase font-semibold tracking-wider">{$t('viewerElectrical.color')}</span>
+          <div class="flex gap-2">
+            {#each ([
+              { id: '#22c55e', label: $t('viewerElectrical.colorGreen'), bg: 'bg-[#22c55e]' },
+              { id: '#0f172a', label: $t('viewerElectrical.colorBlack'), bg: 'bg-[#0f172a] border border-white/40' },
+              { id: '#eab308', label: $t('viewerElectrical.colorYellow'), bg: 'bg-[#eab308]' },
+              { id: '#2563eb', label: $t('viewerElectrical.colorBlue'), bg: 'bg-[#2563eb]' },
+            ] as const) as c}
+              <button
+                onclick={() => { selectedConduitColor = c.id; if (electricalGhostGroup) createElectricalGhost(selectedElectricalType, selectedConduitColor); }}
+                class="flex-1 py-1 px-1 rounded flex flex-col items-center gap-1 transition-all {selectedConduitColor === c.id ? 'ring-2 ring-white scale-105 bg-white/20' : 'hover:bg-white/10'}"
+                title={c.label}
+              >
+                <div class="w-5 h-5 rounded-full {c.bg}"></div>
+                <span class="text-[9px] text-white/80">{c.label}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Element Selection -->
+        <div class="p-2.5 space-y-1.5 overflow-y-auto flex-1">
+          <span class="text-[10px] text-white/60 uppercase font-semibold tracking-wider">{$t('viewerElectrical.elements')}</span>
+          <div class="space-y-1">
+            {#each ([
+              { id: 'conduit_flexible', icon: '〰️', label: $t('viewerElectrical.typeConduitFlex') },
+              { id: 'conduit_rigid', icon: '➖', label: $t('viewerElectrical.typeConduitRigid') },
+              { id: 'conduit_vertical', icon: '⏐', label: $t('viewerElectrical.typeConduitVert') },
+              { id: 'junction_box', icon: '📦', label: $t('viewerElectrical.typeJunctionBox') },
+              { id: 'wall_outlet', icon: '🔌', label: $t('viewerElectrical.typeOutlet') },
+              { id: 'wall_switch', icon: '🔘', label: $t('viewerElectrical.typeSwitch') },
+              { id: 'electrical_panel', icon: '⚡', label: $t('viewerElectrical.typePanel') },
+            ] as const) as item}
+              <button
+                onclick={() => {
+                  selectedElectricalType = item.id;
+                  conduitDrawingStart = null;
+                  removeConduitPreview();
+                  createElectricalGhost(item.id, selectedConduitColor);
+                }}
+                class="w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center gap-2.5 transition-colors {selectedElectricalType === item.id ? 'bg-amber-600 text-white font-medium shadow-sm' : 'hover:bg-white/10 text-white/80'}"
+              >
+                <span class="text-base">{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Helper hint -->
+        <div class="p-2 bg-white/5 border-t border-white/10 text-[10px] text-white/70">
+          {#if conduitDrawingStart}
+            <span class="text-amber-300">{$t('viewerElectrical.hintConduitEnd')}</span>
+          {:else if selectedElectricalType === 'conduit_flexible' || selectedElectricalType === 'conduit_rigid'}
+            <span>{$t('viewerElectrical.hintConduitStart')}</span>
+          {:else}
+            <span>{$t('viewerElectrical.hintBox')}</span>
+          {/if}
+        </div>
+      </div>
+    {/if}
 
     <!-- Furniture Placement Toggle -->
     <button

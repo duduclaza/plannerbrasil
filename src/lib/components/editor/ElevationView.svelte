@@ -447,7 +447,7 @@
       } else {
         ctx.fillStyle = '#dbeafe';
         ctx.fillRect(px, py, pw, ph);
-        ctx.strokeStyle = '#2563eb';
+        ctx.strokeStyle = '#16a34a';
         ctx.lineWidth = 1.5;
         ctx.strokeRect(px, py, pw, ph);
         // Window mullions (cross)
@@ -458,7 +458,7 @@
         ctx.stroke();
       }
       if (r.id === hov && r.id !== sel) {
-        ctx.strokeStyle = '#60a5fa';
+        ctx.strokeStyle = '#4ade80';
         ctx.lineWidth = 2;
         ctx.strokeRect(px - 2, py - 2, pw + 4, ph + 4);
       }
@@ -498,7 +498,7 @@
       const py = yAt(selRect.y + selRect.h);
       const pw = selRect.w * scale;
       const ph = selRect.h * scale;
-      ctx.strokeStyle = '#3b82f6';
+      ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 3]);
       ctx.strokeRect(px - 3, py - 3, pw + 6, ph + 6);

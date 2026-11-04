@@ -44,7 +44,7 @@
     } catch (error) { importError = error instanceof Error ? error.message : $t('welcome.projectFailed'); }
   }
 
-  function startFromScratch() { return createProject(() => createDefaultProject('Untitled Project')); }
+  function startFromScratch() { return createProject(() => createDefaultProject($t('library.untitled') || 'Projeto Sem Título')); }
   function useHouseTemplate(index: number) { return createProject(houseTemplates[index].create); }
 
   let showTemplates = $state(false);
@@ -141,7 +141,7 @@
       <button onclick={() => showTemplates = false} class="text-gray-400 hover:text-gray-600 mb-4 text-sm">{$t('welcome.back')}</button>
       <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">{$t('welcome.templatesTitle')}</h2>
       <p class="text-sm text-gray-400 text-center mb-6">{$t('welcome.templatesSubtitle')}</p>
-      <div class="space-y-3">
+      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
         {#each houseTemplates as template, i}
           <button
             onclick={() => useHouseTemplate(i)}
@@ -164,7 +164,7 @@
       <h1 class="text-3xl font-bold text-gray-800 mb-2">{$t('welcome.title')}</h1>
       <p class="text-gray-500 mb-8">{$t('welcome.subtitle')}</p>
 
-      <div class="space-y-3">
+      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
         <button
           onclick={startFromScratch}
           class="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left"

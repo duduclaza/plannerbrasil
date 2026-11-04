@@ -86,7 +86,7 @@
   }
 
   function createFromTemplate(index: number) { return createProject(houseTemplates[index].create); }
-  function newProject() { return createProject(() => createDefaultProject('Untitled Project')); }
+  function newProject() { return createProject(() => createDefaultProject($t('library.untitled') || 'Projeto Sem Título')); }
 
   /** The last copy Duplicate made: named in a status line and outlined in the list. */
   let duplicatedId = $state<string | null>(null);
@@ -168,7 +168,7 @@
 
 <div class="min-h-screen bg-gray-50">
   <!-- Header -->
-  <div class="bg-gradient-to-r from-slate-800 to-slate-700 shadow-sm">
+  <div class="bg-gradient-to-r from-[#0e271f] to-[#15382c] border-b border-[#1b4435] shadow-sm">
     <div class="max-w-5xl mx-auto px-6 py-5 flex flex-wrap gap-4 items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-white">{$t('library.title')}</h1>
@@ -185,7 +185,7 @@
         <button
           bind:this={newProjectButton}
           onclick={newProject}
-          class="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold text-sm shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 flex items-center gap-2"
+          class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold text-sm shadow-lg shadow-emerald-600/25 transition-all hover:shadow-emerald-600/40 flex items-center gap-2"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           {$t('library.new')}
@@ -312,7 +312,7 @@
           <button aria-label={$t('library.closeTemplates')} onclick={() => showTemplateModal = false} class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
         </div>
         <p class="text-sm text-gray-400 mb-6">{$t('welcome.templatesSubtitle')}</p>
-        <div class="space-y-3">
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
           {#each houseTemplates as template, i}
             <button
               onclick={() => createFromTemplate(i)}

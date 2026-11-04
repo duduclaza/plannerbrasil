@@ -5,7 +5,7 @@ import { pt } from './locales/pt';
 export type Locale = 'en' | 'pt';
 export type TranslationKey = keyof typeof en;
 const dictionaries: Record<Locale, Record<TranslationKey, string>> = { en, pt };
-const preference = writable<Locale>('en');
+const preference = writable<Locale>('pt');
 const isLocale = (value: unknown): value is Locale => value === 'en' || value === 'pt';
 
 export function translate(language: Locale, key: TranslationKey, variables: Record<string, string | number> = {}): string {
@@ -24,12 +24,18 @@ export const locale = {
   },
 };
 
-/** Run after hydration; SSR and the first client render always agree on English. */
+/** Run after hydration; defaults to Brazilian Portuguese ('pt'). */
 export function initializeLocale() {
   let saved: unknown;
   try { saved = localStorage.getItem('o3d_locale'); } catch { /* Storage can be disabled. */ }
-  // Keep English until the remaining interface has been translated; users opt in.
-  locale.set(isLocale(saved) ? saved : 'en');
+  // If the user hasn't explicitly chosen a language in settings, default to Portuguese
+  let explicit: unknown;
+  try { explicit = localStorage.getItem('o3d_locale_explicit'); } catch {}
+  if (!explicit) {
+    locale.set('pt');
+    return;
+  }
+  locale.set(isLocale(saved) ? saved : 'pt');
 }
 
 /** Svelte's $t subscription updates labels without remounting dialogs or inputs. */

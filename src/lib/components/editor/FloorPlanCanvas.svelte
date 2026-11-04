@@ -1718,6 +1718,35 @@
       }
     }
 
+    // Live dimension tooltip while dragging furniture resize handles
+    if (draggingHandle && draggingHandle.startsWith('resize') && currentSelectedId && currentFloor) {
+      const fi = currentFloor.furniture.find(f => f.id === currentSelectedId);
+      if (fi) {
+        const size = getFurnitureSize(fi);
+        const sp = worldToScreen(fi.position.x, fi.position.y);
+        const u = dimSettings.units;
+        const label = `${formatLength(size.width, u)} × ${formatLength(size.depth, u)}`;
+        const fontSize = 12;
+        ctx.font = `600 ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(label).width;
+        const pw = tw + 16;
+        const ph = fontSize + 10;
+        const tx = sp.x;
+        const ty = sp.y - (size.depth * zoom) / 2 - 28;
+        ctx.fillStyle = '#162a22';
+        ctx.beginPath();
+        ctx.roundRect(tx - pw / 2, ty - ph / 2, pw, ph, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, tx, ty);
+      }
+    }
+
     // Drag preview ghost
     if (dragPreview) {
       const dp = dragPreview;

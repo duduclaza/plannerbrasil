@@ -134,6 +134,15 @@
     removeFloor(id);
   }
 
+  function floorDisplayName(name: string, lang: string): string {
+    if (lang === 'pt') {
+      if (name === 'Ground Floor') return 'Térreo';
+      const m = name.match(/^Floor\s+(\d+)$/i);
+      if (m) return `Pavimento ${m[1]}`;
+    }
+    return name;
+  }
+
   async function save() {
     await manualSave();
   }
@@ -347,7 +356,7 @@
   }
 </script>
 
-<div class="h-12 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center px-4 gap-2 max-xl:px-2 max-xl:gap-1 shrink-0 shadow-sm">
+<div class="h-12 bg-gradient-to-r from-[#0e271f] to-[#15382c] border-b border-[#1b4435] flex items-center px-4 gap-2 max-xl:px-2 max-xl:gap-1 shrink-0 shadow-sm">
   <!-- Back to Projects -->
   <a
     href={base || '/'}
@@ -383,8 +392,8 @@
   <!-- Floor selector as buttons (in overflow menu on mobile) -->
   <div class="flex items-center gap-1 max-xl:hidden">
     <select aria-label={$t('floorControls.current')} value={activeFloorId} onchange={(e) => setActiveFloor(e.currentTarget.value)}
-      class="w-32 rounded bg-slate-700 px-2 py-1 text-xs text-white" title={$t('floorControls.switch')}>
-      {#each floors as fl}<option value={fl.id}>{fl.name}</option>{/each}
+      class="w-32 rounded bg-[#1a3f32] border border-[#235342] px-2 py-1 text-xs text-white" title={$t('floorControls.switch')}>
+      {#each floors as fl}<option value={fl.id}>{floorDisplayName(fl.name, $locale)}</option>{/each}
     </select>
     <div class="relative" bind:this={floorMenuRef}>
       <button
@@ -561,7 +570,7 @@
           <div class="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{$t('floorControls.floors')}</div>
           {#each floors as fl}
             <button class="w-full px-3 py-2 text-sm hover:bg-gray-100 text-left flex items-center gap-2 {fl.id === activeFloorId ? 'text-blue-600 font-semibold' : 'text-gray-700'}" onclick={() => { setActiveFloor(fl.id); moreOpen = false; }}>
-              {fl.name}{fl.id === activeFloorId ? ' ✓' : ''}
+              {floorDisplayName(fl.name, $locale)}{fl.id === activeFloorId ? ' ✓' : ''}
             </button>
           {/each}
           <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={() => { onAddFloor('outer'); }}>+ {$t('floorControls.add')} <span class="text-gray-400">{$t('floorControls.outerHint')}</span></button>

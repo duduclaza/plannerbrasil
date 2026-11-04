@@ -187,13 +187,17 @@ export const furnitureCatalog: FurnitureDef[] = [
 
   // Garage
   { id: 'car_sedan', name: 'Car (Sedan)', category: 'Garage', icon: '🚗', color: '#475569', width: 180, depth: 450, height: 150 },
+  { id: 'car_compact', name: 'Car (Hatchback)', category: 'Garage', icon: '🚗', color: '#b91c1c', width: 170, depth: 380, height: 145 },
   { id: 'car_suv', name: 'Car (SUV)', category: 'Garage', icon: '🚙', color: '#334155', width: 190, depth: 480, height: 170 },
+  { id: 'car_pickup', name: 'Pickup Truck', category: 'Garage', icon: '🛻', color: '#1d4ed8', width: 195, depth: 540, height: 180 },
   { id: 'garage_door_single', name: 'Garage Door (Single)', category: 'Garage', icon: '🚪', color: '#9ca3af', width: 280, depth: 10, height: 220 },
   { id: 'garage_door_double', name: 'Garage Door (Double)', category: 'Garage', icon: '🚪', color: '#9ca3af', width: 500, depth: 10, height: 220 },
   { id: 'workbench', name: 'Workbench', category: 'Garage', icon: '🔧', color: '#78716c', width: 180, depth: 60, height: 90 },
   { id: 'tool_cabinet', name: 'Tool Cabinet', category: 'Garage', icon: '🧰', color: '#dc2626', width: 70, depth: 45, height: 140 },
   { id: 'bike', name: 'Bicycle', category: 'Garage', icon: '🚲', color: '#374151', width: 60, depth: 170, height: 110 },
-  { id: 'motorcycle', name: 'Motorcycle', category: 'Garage', icon: '🏍️', color: '#1e293b', width: 80, depth: 210, height: 110 },
+  { id: 'motorcycle', name: 'Motorcycle', category: 'Garage', icon: '🏍️', color: '#dc2626', width: 80, depth: 210, height: 110 },
+  { id: 'motorcycle_sport', name: 'Sport Motorcycle', category: 'Garage', icon: '🏍️', color: '#2563eb', width: 70, depth: 205, height: 115 },
+  { id: 'scooter', name: 'Scooter', category: 'Garage', icon: '🛵', color: '#eab308', width: 65, depth: 170, height: 110 },
 
   // Paths & Lawns
   { id: 'lawn_rect', name: 'Lawn (Rectangle)', category: 'Paths & Lawns', icon: '🟩', color: '#22c55e', width: 400, depth: 300, height: 3 },
@@ -229,14 +233,24 @@ export const furnitureCatalog: FurnitureDef[] = [
   { id: 'statue', name: 'Garden Statue', category: 'Garden Structures', icon: '🗿', color: '#d6d3d1', width: 40, depth: 40, height: 120 },
   { id: 'mailbox', name: 'Mailbox', category: 'Garden Structures', icon: '📫', color: '#1e293b', width: 30, depth: 20, height: 110 },
 
+  // Electrical & Conduits
+  { id: 'conduit_flexible', name: 'Flexible Conduit', category: 'Electrical', icon: '〰️', color: '#f59e0b', width: 100, depth: 5, height: 5 },
+  { id: 'conduit_rigid', name: 'Rigid Conduit', category: 'Electrical', icon: '➖', color: '#94a3b8', width: 150, depth: 4, height: 4 },
+  { id: 'conduit_vertical', name: 'Vertical Conduit Drop', category: 'Electrical', icon: '⏐', color: '#f59e0b', width: 5, depth: 5, height: 100 },
+  { id: 'conduit_elbow', name: 'Conduit Elbow 90°', category: 'Electrical', icon: '↪️', color: '#94a3b8', width: 15, depth: 15, height: 4 },
+  { id: 'electrical_panel', name: 'Electrical Panel', category: 'Electrical', icon: '⚡', color: '#334155', width: 35, depth: 12, height: 50 },
+  { id: 'junction_box', name: 'Junction Box', category: 'Electrical', icon: '📦', color: '#f59e0b', width: 12, depth: 8, height: 12 },
+  { id: 'wall_outlet', name: 'Wall Outlet', category: 'Electrical', icon: '🔌', color: '#2563eb', width: 8, depth: 4, height: 12 },
+  { id: 'wall_switch', name: 'Wall Switch', category: 'Electrical', icon: '🔘', color: '#2563eb', width: 8, depth: 4, height: 12 },
+
   // Electrical Symbols (2D only)
-  { id: 'sym_outlet', name: 'Power Outlet', category: 'Electrical', icon: '🔌', color: '#2563eb', width: 15, depth: 15, height: 0, symbol: true },
-  { id: 'sym_switch', name: 'Light Switch', category: 'Electrical', icon: '🔘', color: '#2563eb', width: 15, depth: 15, height: 0, symbol: true },
+  { id: 'sym_outlet', name: 'Power Outlet (Symbol)', category: 'Electrical', icon: '🔌', color: '#2563eb', width: 15, depth: 15, height: 0, symbol: true },
+  { id: 'sym_switch', name: 'Light Switch (Symbol)', category: 'Electrical', icon: '🔘', color: '#2563eb', width: 15, depth: 15, height: 0, symbol: true },
   { id: 'sym_ceiling_light', name: 'Ceiling Light', category: 'Electrical', icon: '💡', color: '#eab308', width: 20, depth: 20, height: 0, symbol: true },
   { id: 'sym_recessed_light', name: 'Recessed Light', category: 'Electrical', icon: '🔆', color: '#eab308', width: 15, depth: 15, height: 0, symbol: true },
   { id: 'sym_pendant', name: 'Pendant Light', category: 'Electrical', icon: '💡', color: '#eab308', width: 18, depth: 18, height: 0, symbol: true },
   { id: 'sym_ceiling_fan', name: 'Ceiling Fan', category: 'Electrical', icon: '🌀', color: '#2563eb', width: 25, depth: 25, height: 0, symbol: true },
-  { id: 'sym_junction', name: 'Junction Box', category: 'Electrical', icon: '⬜', color: '#2563eb', width: 12, depth: 12, height: 0, symbol: true },
+  { id: 'sym_junction', name: 'Junction Box (Symbol)', category: 'Electrical', icon: '⬜', color: '#2563eb', width: 12, depth: 12, height: 0, symbol: true },
   { id: 'sym_smoke', name: 'Smoke Detector', category: 'Electrical', icon: '🔔', color: '#dc2626', width: 15, depth: 15, height: 0, symbol: true },
 
   // Plumbing Symbols (2D only)

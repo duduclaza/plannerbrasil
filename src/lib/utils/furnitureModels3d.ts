@@ -255,8 +255,25 @@ export function createFurnitureModel(catalogId: string, def: FurnitureDef): THRE
       break;
     // Garage
     case 'car_sedan':
+      createCar(group, w, d, h, color, 'sedan');
+      break;
+    case 'car_compact':
+      createCar(group, w, d, h, color, 'hatch');
+      break;
     case 'car_suv':
-      createCar(group, w, d, h, color);
+      createCar(group, w, d, h, color, 'suv');
+      break;
+    case 'car_pickup':
+      createCar(group, w, d, h, color, 'pickup');
+      break;
+    case 'motorcycle':
+      createMotorcycle(group, w, d, h, color, 'street');
+      break;
+    case 'motorcycle_sport':
+      createMotorcycle(group, w, d, h, color, 'sport');
+      break;
+    case 'scooter':
+      createMotorcycle(group, w, d, h, color, 'scooter');
       break;
     // Paths & Lawns
     case 'lawn_rect':
@@ -292,6 +309,41 @@ export function createFurnitureModel(catalogId: string, def: FurnitureDef): THRE
     case 'arbor':
     case 'trellis':
       createArbor(group, w, d, h, color);
+      break;
+    // Electrical & Conduits
+    case 'conduit_flexible':
+      createFlexibleConduit(group, w, d, h, color);
+      break;
+    case 'conduit_rigid':
+      createRigidConduit(group, w, d, h, color);
+      break;
+    case 'conduit_vertical':
+      createVerticalConduit(group, w, d, h, color);
+      break;
+    case 'conduit_elbow':
+      createConduitElbow(group, w, d, h, color);
+      break;
+    case 'electrical_panel':
+      createElectricalPanel(group, w, d, h, color);
+      break;
+    case 'junction_box':
+    case 'sym_junction':
+      createJunctionBox(group, w, d, h, color);
+      break;
+    case 'wall_outlet':
+    case 'sym_outlet':
+      createPowerOutlet(group, w, d, h);
+      break;
+    case 'wall_switch':
+    case 'sym_switch':
+      createLightSwitch(group, w, d, h);
+      break;
+    case 'sym_ceiling_light':
+    case 'sym_recessed_light':
+      createCeilingLightFixture(group, w, d, h);
+      break;
+    case 'sym_ceiling_fan':
+      createCeilingFanModel(group, w, d, h);
       break;
     default:
       // Fallback to simple box
@@ -1668,31 +1720,214 @@ function createDivingBoard(group: THREE.Group, w: number, d: number, h: number):
 }
 
 // --- Garage ---
-function createCar(group: THREE.Group, w: number, d: number, h: number, color: string): void {
-  const bodyMat = createMaterial(color || '#475569', 0.4, 0.5);
-  const glassMat = createMaterial('#bfdbfe', 0.2, 0.6);
-  (glassMat as THREE.MeshStandardMaterial).transparent = true;
-  (glassMat as THREE.MeshStandardMaterial).opacity = 0.5;
-  const wheelMat = createMaterial('#1e1e1e', 0.9, 0.0);
-  // Body
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.4, d * 0.8), bodyMat);
-  body.position.set(0, h * 0.2, 0);
-  group.add(body);
-  // Cabin
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, h * 0.35, d * 0.45), glassMat);
-  cabin.position.set(0, h * 0.575, -d * 0.05);
+type CarKind = 'sedan' | 'suv' | 'hatch' | 'pickup';
+
+/** Extrudes a side profile (u along the length 0..1, v as height fraction) across the car width. */
+function extrudeProfile(pts: [number, number][], d: number, h: number, width: number, mat: THREE.Material, bevel = 2): THREE.Mesh {
+  const shape = new THREE.Shape();
+  pts.forEach(([u, v], i) => {
+    const x = (u - 0.5) * d, y = v * h;
+    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+  });
+  shape.closePath();
+  const depth = Math.max(1, width - bevel * 2);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, steps: 1 });
+  geo.translate(0, 0, -depth / 2);
+  geo.rotateY(Math.PI / 2); // profile length axis -> world Z; front of car faces -Z
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, mat);
+}
+
+function createCar(group: THREE.Group, w: number, d: number, h: number, color: string, kind: CarKind = 'sedan'): void {
+  const bodyMat = createMaterial(color || '#475569', 0.25, 0.65);
+  const glassMat = createMaterial('#1e293b', 0.05, 0.9) as THREE.MeshStandardMaterial;
+  glassMat.transparent = true; glassMat.opacity = 0.85;
+  const plastic = createMaterial('#111827', 0.8, 0.1);
+  const tireMat = createMaterial('#0a0a0a', 0.95, 0.0);
+  const rimMat = createMaterial('#cbd5e1', 0.25, 0.9);
+  const headMat = new THREE.MeshStandardMaterial({ color: '#fef9c3', emissive: '#fde68a', emissiveIntensity: 0.6 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: '#dc2626', emissive: '#991b1b', emissiveIntensity: 0.5 });
+
+  // Profiles: u = 0 at the rear, 1 at the front.
+  const profiles: Record<CarKind, { body: [number, number][]; cabin: [number, number][]; wheelBase: [number, number] }> = {
+    sedan: {
+      body: [[0.03,0.14],[0,0.28],[0.01,0.42],[0.10,0.47],[0.34,0.49],[0.64,0.49],[0.92,0.45],[1,0.38],[0.99,0.26],[0.97,0.14]],
+      cabin: [[0.30,0.49],[0.40,0.78],[0.66,0.78],[0.78,0.49]],
+      wheelBase: [0.19, 0.82],
+    },
+    hatch: {
+      body: [[0.03,0.14],[0,0.30],[0.02,0.48],[0.20,0.52],[0.64,0.50],[0.92,0.45],[1,0.38],[0.99,0.26],[0.97,0.14]],
+      cabin: [[0.06,0.52],[0.20,0.82],[0.62,0.82],[0.78,0.50]],
+      wheelBase: [0.2, 0.80],
+    },
+    suv: {
+      body: [[0.03,0.14],[0,0.30],[0.01,0.52],[0.1,0.56],[0.64,0.56],[0.92,0.52],[1,0.42],[0.99,0.26],[0.97,0.14]],
+      cabin: [[0.04,0.56],[0.10,0.88],[0.62,0.88],[0.80,0.56]],
+      wheelBase: [0.2, 0.80],
+    },
+    pickup: {
+      body: [[0.03,0.14],[0,0.30],[0,0.52],[0.40,0.52],[0.40,0.50],[0.64,0.52],[0.92,0.50],[1,0.42],[0.99,0.26],[0.97,0.14]],
+      cabin: [[0.42,0.52],[0.48,0.88],[0.70,0.88],[0.80,0.52]],
+      wheelBase: [0.17, 0.80],
+    },
+  };
+  const prof = profiles[kind];
+  const bodyW = w * 0.94;
+  group.add(extrudeProfile(prof.body, d, h, bodyW, bodyMat, 3));
+  const cabin = extrudeProfile(prof.cabin, d, h, bodyW * 0.86, glassMat, 2);
   group.add(cabin);
-  // Wheels (4)
-  const wheelR = h * 0.15;
-  const positions = [
-    [-w / 2, wheelR, -d * 0.3], [w / 2, wheelR, -d * 0.3],
-    [-w / 2, wheelR, d * 0.3], [w / 2, wheelR, d * 0.3]
-  ];
-  for (const [x, y, z] of positions) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(wheelR, wheelR, 8, 12), wheelMat);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    group.add(wheel);
+  // Body-coloured roof slab
+  const roofPts = prof.cabin.filter(([, v]) => v > 0.7);
+  const ru0 = Math.min(...roofPts.map(p => p[0])), ru1 = Math.max(...roofPts.map(p => p[0]));
+  const roofTop = Math.max(...roofPts.map(p => p[1]));
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(bodyW * 0.84, h * 0.025, (ru1 - ru0) * d), bodyMat);
+  roof.position.set(0, roofTop * h, -((ru0 + ru1) / 2 - 0.5) * d);
+  group.add(roof);
+
+  // Pickup cargo bed
+  if (kind === 'pickup') {
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(bodyW * 0.9, h * 0.04, d * 0.38), plastic);
+    bed.position.set(0, h * 0.5, ((0.5 - 0.20)) * d);
+    group.add(bed);
+  }
+
+  // Bumpers
+  for (const sign of [-1, 1]) {
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(bodyW * 1.0, h * 0.1, 6), plastic);
+    bumper.position.set(0, h * 0.2, sign * (d / 2 - 1));
+    group.add(bumper);
+  }
+  // Lights (front = -Z)
+  for (const sx of [-1, 1]) {
+    const head = new THREE.Mesh(new THREE.BoxGeometry(w * 0.2, h * 0.06, 3), headMat);
+    head.position.set(sx * w * 0.34, h * 0.36, -d / 2 - 1);
+    group.add(head);
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(w * 0.2, h * 0.06, 3), tailMat);
+    tail.position.set(sx * w * 0.34, h * 0.38, d / 2 + 1);
+    group.add(tail);
+    // Side mirrors
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(8, h * 0.04, 12), bodyMat);
+    mirror.position.set(sx * (bodyW / 2 + 3), h * 0.55, -((prof.cabin[1][0]) - 0.5) * d - 20);
+    group.add(mirror);
+  }
+  // Grille
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, h * 0.05, 2), plastic);
+  grille.position.set(0, h * 0.32, -d / 2 - 1);
+  group.add(grille);
+
+  // Wheels
+  const R = Math.min(h * 0.21, 36), tw = w * 0.13;
+  for (const u of prof.wheelBase) {
+    for (const sx of [-1, 1]) {
+      const wz = -(u - 0.5) * d;
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(R, R, tw, 24), tireMat);
+      tire.rotation.z = Math.PI / 2;
+      tire.position.set(sx * (bodyW / 2 - tw / 2 + 1), R, wz);
+      group.add(tire);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.62, R * 0.62, tw + 0.6, 12), rimMat);
+      rim.rotation.z = Math.PI / 2;
+      rim.position.copy(tire.position);
+      rim.position.x += sx * 0.2;
+      group.add(rim);
+    }
+  }
+}
+
+type MotoKind = 'street' | 'sport' | 'scooter';
+
+function createMotorcycle(group: THREE.Group, w: number, d: number, h: number, color: string, kind: MotoKind = 'street'): void {
+  const bodyMat = createMaterial(color || '#dc2626', 0.3, 0.6);
+  const dark = createMaterial('#111827', 0.7, 0.3);
+  const metal = createMaterial('#94a3b8', 0.3, 0.9);
+  const tireMat = createMaterial('#0a0a0a', 0.95, 0.0);
+  const seatMat = createMaterial('#1f2937', 0.9, 0.0);
+  const headMat = new THREE.MeshStandardMaterial({ color: '#fef9c3', emissive: '#fde68a', emissiveIntensity: 0.6 });
+  const R = kind === 'scooter' ? h * 0.17 : h * 0.29;
+  const frontZ = -d * 0.37, rearZ = d * 0.36;
+  const tubeR = R * 0.17;
+
+  for (const z of [frontZ, rearZ]) {
+    const tire = new THREE.Mesh(new THREE.TorusGeometry(R - tubeR, tubeR, 12, 28), tireMat);
+    tire.rotation.y = Math.PI / 2;
+    tire.position.set(0, R, z);
+    group.add(tire);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.55, R * 0.55, 3, 16), metal);
+    disc.rotation.z = Math.PI / 2;
+    disc.position.set(0, R, z);
+    group.add(disc);
+  }
+  // Fork + handlebar
+  const barY = h * (kind === 'scooter' ? 0.88 : 0.82);
+  const barZ = frontZ + d * 0.1;
+  const forkLen = Math.hypot(barY - R, barZ - frontZ);
+  const fork = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, forkLen, 8), metal);
+  fork.position.set(0, (barY + R) / 2, (barZ + frontZ) / 2);
+  fork.rotation.x = Math.atan2(barZ - frontZ, barY - R);
+  group.add(fork);
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, w * 0.95, 8), dark);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, barY, barZ);
+  group.add(bar);
+  for (const sx of [-1, 1]) {
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 1.5), dark);
+    mirror.position.set(sx * w * 0.42, barY + 8, barZ);
+    group.add(mirror);
+  }
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(7, 12, 8), headMat);
+  lamp.position.set(0, barY - 4, barZ - 8);
+  group.add(lamp);
+
+  if (kind === 'scooter') {
+    // Step-through floor + body panels
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(w * 0.6, 4, d * 0.34), bodyMat);
+    floor.position.set(0, R + 6, -d * 0.05);
+    group.add(floor);
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, h * 0.45, 5), bodyMat);
+    shield.position.set(0, h * 0.55, barZ + 4);
+    group.add(shield);
+    const rear = new THREE.Mesh(new THREE.BoxGeometry(w * 0.6, h * 0.3, d * 0.3), bodyMat);
+    rear.position.set(0, h * 0.4, rearZ - d * 0.05);
+    group.add(rear);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 7, d * 0.28), seatMat);
+    seat.position.set(0, h * 0.58, rearZ - d * 0.07);
+    group.add(seat);
+    return;
+  }
+  // Engine block + frame
+  const engine = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, h * 0.22, d * 0.2), dark);
+  engine.position.set(0, h * 0.33, d * 0.0);
+  group.add(engine);
+  // Fuel tank
+  const tank = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), bodyMat);
+  tank.scale.set(w * 0.28, h * 0.14, d * 0.16);
+  tank.position.set(0, h * 0.62, -d * 0.1);
+  group.add(tank);
+  // Seat & tail
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(w * 0.32, 8, d * 0.24), seatMat);
+  seat.position.set(0, h * 0.6, d * 0.14);
+  group.add(seat);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(w * 0.26, h * 0.07, d * 0.14), bodyMat);
+  tail.position.set(0, h * 0.62, d * 0.3);
+  group.add(tail);
+  // Rear swingarm + exhaust
+  for (const sx of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(3, 4, rearZ - d * 0.05), dark);
+    arm.position.set(sx * 9, R + 6, (rearZ + d * 0.05) / 2);
+    group.add(arm);
+  }
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, d * 0.34, 12), metal);
+  exhaust.rotation.x = Math.PI / 2;
+  exhaust.position.set(w * 0.2, h * 0.27, d * 0.2);
+  group.add(exhaust);
+  if (kind === 'sport') {
+    const fairing = new THREE.Mesh(new THREE.BoxGeometry(w * 0.45, h * 0.3, d * 0.2), bodyMat);
+    fairing.position.set(0, h * 0.52, -d * 0.2);
+    fairing.rotation.x = -0.35;
+    group.add(fairing);
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(w * 0.3, h * 0.18, 2), createMaterial('#93c5fd', 0.1, 0.5));
+    screen.position.set(0, h * 0.8, barZ + 6);
+    screen.rotation.x = -0.5;
+    group.add(screen);
   }
 }
 
@@ -1833,4 +2068,231 @@ function createDeckPatio(group: THREE.Group, w: number, d: number, h: number, co
     plank.position.set(xPos, h / 2, 0);
     group.add(plank);
   }
+}
+
+// ─── Electrical & Conduits ──────────────────────────────────────────
+
+function createFlexibleConduit(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const tubeMat = createMaterial(color || '#f59e0b', 0.6, 0.1);
+  const ringMat = createMaterial('#b45309', 0.7, 0.1);
+  const radius = Math.max(1.5, Math.min(d, h) / 2);
+  const tubeGeo = new THREE.CylinderGeometry(radius, radius, w, 16);
+  const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+  tubeMesh.rotation.z = Math.PI / 2;
+  tubeMesh.position.y = radius;
+  group.add(tubeMesh);
+
+  // Add corrugated rings along the length
+  const numRings = Math.max(4, Math.floor(w / 4));
+  const ringGeo = new THREE.TorusGeometry(radius * 1.15, radius * 0.2, 8, 16);
+  for (let i = 0; i <= numRings; i++) {
+    const x = -w / 2 + (w / numRings) * i;
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.y = Math.PI / 2;
+    ringMesh.position.set(x, radius, 0);
+    group.add(ringMesh);
+  }
+}
+
+function createRigidConduit(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const pipeMat = createMaterial(color || '#94a3b8', 0.4, 0.6);
+  const clampMat = createMaterial('#475569', 0.6, 0.3);
+  const radius = Math.max(1.5, Math.min(d, h) / 2);
+  const pipeGeo = new THREE.CylinderGeometry(radius, radius, w, 16);
+  const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+  pipeMesh.rotation.z = Math.PI / 2;
+  pipeMesh.position.y = radius;
+  group.add(pipeMesh);
+
+  // Wall clamps at ends and middle
+  const clampGeo = new THREE.BoxGeometry(3, radius * 2.4, radius * 2.6);
+  for (const factor of [-0.4, 0, 0.4]) {
+    const clampMesh = new THREE.Mesh(clampGeo, clampMat);
+    clampMesh.position.set(w * factor, radius, 0);
+    group.add(clampMesh);
+  }
+}
+
+function createVerticalConduit(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const tubeMat = createMaterial(color || '#f59e0b', 0.6, 0.1);
+  const ringMat = createMaterial('#334155', 0.7, 0.2);
+  const radius = Math.max(1.5, Math.min(w, d) / 2);
+  const tubeGeo = new THREE.CylinderGeometry(radius, radius, h, 16);
+  const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+  tubeMesh.position.y = h / 2;
+  group.add(tubeMesh);
+
+  // Add corrugated rings along the height
+  const numRings = Math.max(3, Math.floor(h / 6));
+  const ringGeo = new THREE.TorusGeometry(radius * 1.15, radius * 0.2, 8, 16);
+  for (let i = 0; i <= numRings; i++) {
+    const y = (h / numRings) * i;
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    ringMesh.position.set(0, y, 0);
+    group.add(ringMesh);
+  }
+}
+
+function createConduitElbow(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const pipeMat = createMaterial(color || '#94a3b8', 0.4, 0.6);
+  const radius = Math.max(1.5, Math.min(d, h) / 2);
+  const bendRadius = Math.max(4, Math.min(w, d) / 2);
+  const torusGeo = new THREE.TorusGeometry(bendRadius, radius, 12, 16, Math.PI / 2);
+  const torusMesh = new THREE.Mesh(torusGeo, pipeMat);
+  torusMesh.rotation.x = Math.PI / 2;
+  torusMesh.position.set(-bendRadius / 2, radius, -bendRadius / 2);
+  group.add(torusMesh);
+}
+
+function createElectricalPanel(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const boxMat = createMaterial(color || '#334155', 0.6, 0.4);
+  const doorMat = createMaterial('#475569', 0.5, 0.3);
+  const latchMat = createMaterial('#94a3b8', 0.3, 0.8);
+  const breakerMat = createMaterial('#0f172a', 0.8, 0.1);
+  const switchMat = createMaterial('#ef4444', 0.5, 0.1);
+
+  // Main enclosure box
+  const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d * 0.9), boxMat);
+  boxMesh.position.set(0, h / 2, 0);
+  group.add(boxMesh);
+
+  // Front bezel/door
+  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(w * 0.95, h * 0.95, d * 0.15), doorMat);
+  doorMesh.position.set(0, h / 2, d * 0.48);
+  group.add(doorMesh);
+
+  // Latch/handle
+  const latchMesh = new THREE.Mesh(new THREE.BoxGeometry(w * 0.08, h * 0.15, d * 0.1), latchMat);
+  latchMesh.position.set(w * 0.35, h / 2, d * 0.55);
+  group.add(latchMesh);
+
+  // Breaker rows (circuit breakers)
+  const rows = 2;
+  const cols = 5;
+  const bW = (w * 0.6) / cols;
+  const bH = (h * 0.25) / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const bx = -w * 0.3 + (c + 0.5) * bW;
+      const by = h * 0.38 + (r + 0.5) * bH;
+      const bMesh = new THREE.Mesh(new THREE.BoxGeometry(bW * 0.8, bH * 0.8, d * 0.08), breakerMat);
+      bMesh.position.set(bx, by, d * 0.52);
+      group.add(bMesh);
+
+      const swMesh = new THREE.Mesh(new THREE.BoxGeometry(bW * 0.4, bH * 0.35, d * 0.06), switchMat);
+      swMesh.position.set(bx, by, d * 0.56);
+      group.add(swMesh);
+    }
+  }
+}
+
+function createJunctionBox(group: THREE.Group, w: number, d: number, h: number, color: string): void {
+  const boxMat = createMaterial(color || '#f59e0b', 0.6, 0.1);
+  const screwMat = createMaterial('#94a3b8', 0.3, 0.7);
+
+  // Box body
+  const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), boxMat);
+  boxMesh.position.set(0, h / 2, 0);
+  group.add(boxMesh);
+
+  // Knockout circular indent on front cover
+  const koMat = createMaterial('#b45309', 0.7, 0.1);
+  const koMesh = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.2, w * 0.2, d * 0.05, 16), koMat);
+  koMesh.rotation.x = Math.PI / 2;
+  koMesh.position.set(0, h / 2, d / 2 + 0.1);
+  group.add(koMesh);
+
+  // Corner screws
+  const screwGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.5, 8);
+  for (const [sx, sy] of [[-w * 0.38, h * 0.15], [w * 0.38, h * 0.85]]) {
+    const screw = new THREE.Mesh(screwGeo, screwMat);
+    screw.rotation.x = Math.PI / 2;
+    screw.position.set(sx, sy, d / 2 + 0.2);
+    group.add(screw);
+  }
+}
+
+function createPowerOutlet(group: THREE.Group, w: number, d: number, h: number): void {
+  const plateMat = createMaterial('#f8fafc', 0.4, 0.05);
+  const socketMat = createMaterial('#334155', 0.8, 0.1);
+
+  // Wall faceplate (4x2 standard)
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), plateMat);
+  plate.position.set(0, h / 2, 0);
+  group.add(plate);
+
+  // 2 socket plugs
+  for (const sy of [h * 0.32, h * 0.68]) {
+    const socket = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, h * 0.24, d * 0.1), socketMat);
+    socket.position.set(0, sy, d / 2 + 0.1);
+    group.add(socket);
+  }
+}
+
+function createLightSwitch(group: THREE.Group, w: number, d: number, h: number): void {
+  const plateMat = createMaterial('#f8fafc', 0.4, 0.05);
+  const rockerMat = createMaterial('#e2e8f0', 0.5, 0.05);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), plateMat);
+  plate.position.set(0, h / 2, 0);
+  group.add(plate);
+
+  const rocker = new THREE.Mesh(new THREE.BoxGeometry(w * 0.45, h * 0.45, d * 0.3), rockerMat);
+  rocker.position.set(0, h / 2, d / 2 + 0.1);
+  rocker.rotation.x = 0.1;
+  group.add(rocker);
+}
+
+function createCeilingLightFixture(group: THREE.Group, w: number, d: number, h: number): void {
+  const rimMat = createMaterial('#64748b', 0.4, 0.5);
+  const lightMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xfff7ed,
+    emissiveIntensity: 0.8,
+    roughness: 0.2
+  });
+
+  const radius = Math.min(w, d) / 2;
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h * 0.4, 24), rimMat);
+  rim.position.y = h * 0.8;
+  group.add(rim);
+
+  const diffuser = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.88, radius * 0.88, h * 0.6, 24), lightMat);
+  diffuser.position.y = h * 0.5;
+  group.add(diffuser);
+}
+
+function createCeilingFanModel(group: THREE.Group, w: number, d: number, h: number): void {
+  const bodyMat = createMaterial('#334155', 0.5, 0.3);
+  const bladeMat = createMaterial('#475569', 0.6, 0.1);
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0xfffbeb, emissive: 0xffedd5, emissiveIntensity: 0.6 });
+
+  // Downrod
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, h * 0.6, 8), bodyMat);
+  rod.position.y = h * 0.7;
+  group.add(rod);
+
+  // Motor hub
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, h * 0.25, 16), bodyMat);
+  hub.position.y = h * 0.35;
+  group.add(hub);
+
+  // 4 Blades
+  const bladeR = w / 2;
+  const bladeGeo = new THREE.BoxGeometry(bladeR * 0.85, 1, 8);
+  for (let i = 0; i < 4; i++) {
+    const angle = (i * Math.PI) / 2;
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.position.set(Math.cos(angle) * bladeR * 0.45, h * 0.38, Math.sin(angle) * bladeR * 0.45);
+    blade.rotation.y = -angle;
+    blade.rotation.x = 0.15;
+    group.add(blade);
+  }
+
+  // Light bowl at bottom
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), lightMat);
+  lamp.position.y = h * 0.25;
+  lamp.rotation.x = Math.PI;
+  group.add(lamp);
 }

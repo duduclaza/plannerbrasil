@@ -32,15 +32,15 @@ describe('locale preferences', () => {
     expect(document.documentElement.lang).toBe('pt');
   });
   it('restores valid preferences and ignores unknown persisted locales', () => {
-    const getItem = vi.fn().mockReturnValue('pt');
+    const getItem = vi.fn().mockImplementation((key) => key === 'o3d_locale_explicit' ? 'true' : 'en');
     vi.stubGlobal('localStorage', { getItem, setItem: vi.fn() });
     initializeLocale();
-    expect(get(locale)).toBe('pt');
-    getItem.mockReturnValue('fr');
+    expect(get(locale)).toBe('en');
+    getItem.mockImplementation((key) => key === 'o3d_locale_explicit' ? 'true' : 'fr');
     initializeLocale();
-    expect(get(locale)).toBe('en');
+    expect(get(locale)).toBe('pt');
     locale.set('fr' as Locale);
-    expect(get(locale)).toBe('en');
+    expect(get(locale)).toBe('pt');
   });
   it('works in memory when storage access throws', () => {
     vi.stubGlobal('localStorage', { getItem() { throw new Error('denied'); }, setItem() { throw new Error('quota'); } });

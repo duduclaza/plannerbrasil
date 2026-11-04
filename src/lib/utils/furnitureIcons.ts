@@ -797,6 +797,116 @@ const drawSymSmoke: DrawFn = (ctx, w, d, color) => {
   ctx.fillText('SD', 0, 0);
 };
 
+const drawConduitFlexible: DrawFn = (ctx, w, d, color) => {
+  const hH = Math.max(d / 2, 3);
+  ctx.fillStyle = color + '40';
+  ctx.fillRect(-w / 2, -hH, w, hH * 2);
+  ctx.strokeStyle = color || '#f59e0b';
+  ctx.lineWidth = 1.5;
+  // Corrugated zig-zag / hash pattern
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, 0);
+  const steps = Math.max(4, Math.floor(w / 6));
+  for (let i = 0; i <= steps; i++) {
+    const x = -w / 2 + (w / steps) * i;
+    const y = i % 2 === 0 ? -hH * 0.6 : hH * 0.6;
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+};
+
+const drawConduitRigid: DrawFn = (ctx, w, d, color) => {
+  const hH = Math.max(d / 2, 2.5);
+  ctx.fillStyle = '#94a3b840';
+  ctx.fillRect(-w / 2, -hH, w, hH * 2);
+  ctx.strokeStyle = color || '#64748b';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-w / 2, -hH, w, hH * 2);
+  // Clamps
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.35, -hH * 1.5); ctx.lineTo(-w * 0.35, hH * 1.5);
+  ctx.moveTo(w * 0.35, -hH * 1.5); ctx.lineTo(w * 0.35, hH * 1.5);
+  ctx.stroke();
+};
+
+const drawCarTop: DrawFn = (ctx, w, d, color) => {
+  const body = color || '#475569';
+  ctx.fillStyle = '#111827';
+  for (const sx of [-1, 1]) for (const sy of [-0.3, 0.3]) ctx.fillRect(sx * w * 0.5 - w * 0.07, sy * d - d * 0.08, w * 0.14, d * 0.16);
+  ctx.fillStyle = body;
+  roundRect(ctx, -w * 0.47, -d / 2, w * 0.94, d, w * 0.2);
+  ctx.fill();
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = '#1e293b';
+  roundRect(ctx, -w * 0.38, -d * 0.2, w * 0.76, d * 0.4, w * 0.12);
+  ctx.fill();
+  ctx.fillStyle = body;
+  ctx.fillRect(-w * 0.32, -d * 0.08, w * 0.64, d * 0.16);
+  ctx.fillStyle = '#fde68a';
+  ctx.fillRect(-w * 0.38, -d / 2 + 2, w * 0.2, d * 0.025);
+  ctx.fillRect(w * 0.18, -d / 2 + 2, w * 0.2, d * 0.025);
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(-w * 0.38, d / 2 - d * 0.025 - 2, w * 0.2, d * 0.025);
+  ctx.fillRect(w * 0.18, d / 2 - d * 0.025 - 2, w * 0.2, d * 0.025);
+};
+
+const drawMotoTop: DrawFn = (ctx, w, d, color) => {
+  ctx.fillStyle = '#0a0a0a';
+  roundRect(ctx, -w * 0.07, -d / 2, w * 0.14, d * 0.2, 2);
+  ctx.fill();
+  roundRect(ctx, -w * 0.07, d / 2 - d * 0.22, w * 0.14, d * 0.22, 2);
+  ctx.fill();
+  ctx.strokeStyle = '#111827';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.5, -d * 0.28);
+  ctx.lineTo(w * 0.5, -d * 0.28);
+  ctx.stroke();
+  ctx.fillStyle = color || '#dc2626';
+  roundRect(ctx, -w * 0.2, -d * 0.25, w * 0.4, d * 0.3, w * 0.12);
+  ctx.fill();
+  ctx.fillStyle = '#1f2937';
+  roundRect(ctx, -w * 0.15, d * 0.08, w * 0.3, d * 0.28, w * 0.1);
+  ctx.fill();
+};
+
+const drawConduitVertical: DrawFn = (ctx, w, d, color) => {
+  ctx.strokeStyle = color || '#64748b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.min(w, d) / 2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = color || '#64748b';
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.min(w, d) / 4, 0, Math.PI * 2);
+  ctx.fill();
+};
+
+const drawConduitElbow: DrawFn = (ctx, w, d, color) => {
+  ctx.strokeStyle = color || '#64748b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, d / 2);
+  ctx.quadraticCurveTo(w / 2, d / 2, w / 2, -d / 2);
+  ctx.stroke();
+};
+
+const drawElectricalPanel: DrawFn = (ctx, w, d, color) => {
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(-w / 2, -d / 2, w, d);
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-w / 2, -d / 2, w, d);
+  // Diagonal split or electrical label
+  ctx.fillStyle = '#facc15';
+  ctx.font = `bold ${Math.min(w, d) * 0.6}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⚡', 0, 0);
+};
+
 // ─── Plumbing Symbols ───────────────────────────────────────────────────
 
 const drawSymWaterSupply: DrawFn = (ctx, w, d, color) => {
@@ -965,7 +1075,22 @@ const iconDrawers: Record<string, DrawFn> = {
   table_lamp: drawTableLamp,
   wall_sconce: drawWallSconce,
   pendant_light: drawPendantLight,
-  // Electrical symbols
+  // Electrical & Conduits
+  car_sedan: drawCarTop,
+  car_compact: drawCarTop,
+  car_suv: drawCarTop,
+  car_pickup: drawCarTop,
+  motorcycle: drawMotoTop,
+  motorcycle_sport: drawMotoTop,
+  scooter: drawMotoTop,
+  conduit_flexible: drawConduitFlexible,
+  conduit_rigid: drawConduitRigid,
+  conduit_vertical: drawConduitVertical,
+  conduit_elbow: drawConduitElbow,
+  electrical_panel: drawElectricalPanel,
+  junction_box: drawSymJunction,
+  wall_outlet: drawSymOutlet,
+  wall_switch: drawSymSwitch,
   sym_outlet: drawSymOutlet,
   sym_switch: drawSymSwitch,
   sym_ceiling_light: drawSymCeilingLight,

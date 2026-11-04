@@ -357,10 +357,17 @@ export function addWindow(wallId: string, position: number, windowType: import('
   return id;
 }
 
-export function addFurniture(catalogId: string, position: Point): string {
+export function addFurniture(catalogId: string, position: Point, overrides?: Partial<FurnitureItem>): string {
   const id = uid();
   mutate((f) => {
-    f.furniture.push({ id, catalogId, position, rotation: 0, scale: { x: 1, y: 1, z: 1 } });
+    f.furniture.push({
+      id,
+      catalogId,
+      position,
+      rotation: overrides?.rotation ?? 0,
+      scale: overrides?.scale ?? { x: 1, y: 1, z: 1 },
+      ...overrides,
+    });
   }, `Added ${catalogId}`);
   if (typeof window !== 'undefined') {
     import('$lib/stores/onboarding.svelte').then(m => m.triggerTip('first-furniture', position.x + 20, position.y + 20)).catch(() => {});

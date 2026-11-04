@@ -17,7 +17,7 @@
   import { openingOnWall } from '$lib/utils/wallProfiles';
   import { getEntourageDef } from '$lib/utils/entourageCatalog';
   import { floorMaterials, wallColors } from '$lib/utils/materials';
-  import { getCatalogItem } from '$lib/utils/furnitureCatalog';
+  import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
   import { projectSettings, formatLength, formatArea, parseLengthInput } from '$lib/stores/settings';
     import type { Floor, Wall, Door, Window as Win, Room, FurnitureItem, Stair, Column, RoomCategory, TextAnnotation } from '$lib/models/types';
   import { getWallStartHeight, getWallEndHeight } from '$lib/models/types';
@@ -51,6 +51,7 @@
   let selectedDoor = $derived(floor?.doors?.find(d => d.id === selId) ?? null);
   let selectedWindow = $derived(floor?.windows?.find(w => w.id === selId) ?? null);
   let selectedFurniture = $derived(floor?.furniture?.find(f => f.id === selId) ?? null);
+  let furnitureSize = $derived(selectedFurniture ? getFurnitureSize(selectedFurniture) : null);
   let selectedStair = $derived(floor?.stairs?.find(s => s.id === selId) ?? null);
   let selectedColumn = $derived(floor?.columns?.find(c => c.id === selId) ?? null);
   let selectedTextAnnotation = $derived(floor?.textAnnotations?.find(t => t.id === selId) ?? null);
@@ -196,18 +197,48 @@
   }
   function onFurnitureWidth(e: Event) {
     if (!selectedFurniture) return;
-    dimensionInput(e, selectedFurniture.width ?? getCatalogItem(selectedFurniture.catalogId)?.width ?? 50,
-      value => updateFurniture(selectedFurniture!.id, { width: value }));
+    const current = furnitureSize?.width ?? (selectedFurniture.width ?? getCatalogItem(selectedFurniture.catalogId)?.width ?? 50);
+    dimensionInput(e, current, value => {
+      const signX = (selectedFurniture!.scale?.x ?? 1) < 0 ? -1 : 1;
+      updateFurniture(selectedFurniture!.id, {
+        width: value,
+        scale: {
+          x: signX,
+          y: selectedFurniture!.scale?.y ?? 1,
+          z: selectedFurniture!.scale?.z ?? 1,
+        }
+      });
+    });
   }
   function onFurnitureDepth(e: Event) {
     if (!selectedFurniture) return;
-    dimensionInput(e, selectedFurniture.depth ?? getCatalogItem(selectedFurniture.catalogId)?.depth ?? 50,
-      value => updateFurniture(selectedFurniture!.id, { depth: value }));
+    const current = furnitureSize?.depth ?? (selectedFurniture.depth ?? getCatalogItem(selectedFurniture.catalogId)?.depth ?? 50);
+    dimensionInput(e, current, value => {
+      const signY = (selectedFurniture!.scale?.y ?? 1) < 0 ? -1 : 1;
+      updateFurniture(selectedFurniture!.id, {
+        depth: value,
+        scale: {
+          x: selectedFurniture!.scale?.x ?? 1,
+          y: signY,
+          z: selectedFurniture!.scale?.z ?? 1,
+        }
+      });
+    });
   }
   function onFurnitureHeight(e: Event) {
     if (!selectedFurniture) return;
-    dimensionInput(e, selectedFurniture.height ?? getCatalogItem(selectedFurniture.catalogId)?.height ?? 50,
-      value => updateFurniture(selectedFurniture!.id, { height: value }));
+    const current = furnitureSize?.height ?? (selectedFurniture.height ?? getCatalogItem(selectedFurniture.catalogId)?.height ?? 50);
+    dimensionInput(e, current, value => {
+      const signZ = (selectedFurniture!.scale?.z ?? 1) < 0 ? -1 : 1;
+      updateFurniture(selectedFurniture!.id, {
+        height: value,
+        scale: {
+          x: selectedFurniture!.scale?.x ?? 1,
+          y: selectedFurniture!.scale?.y ?? 1,
+          z: signZ,
+        }
+      });
+    });
   }
   function onFurnitureMaterial(e: Event) {
     if (!selectedFurniture) return;
@@ -215,7 +246,7 @@
   }
   function onFurnitureRotation(e: Event) {
     if (!selectedFurniture) return;
-    scalarInput(e, selectedFurniture.rotation, value => updateFurniture(selectedFurniture!.id, { rotation: value }));
+    scalarInput(e, Math.round(selectedFurniture.rotation || 0), value => updateFurniture(selectedFurniture!.id, { rotation: value }));
   }
   function resetFurnitureDefaults() {
     if (!selectedFurniture) return;
@@ -691,27 +722,27 @@
         <span class="text-xs text-gray-500">{$t('openingProperties.width')} ({unitLabel()})</span>
         <input 
           type="number" 
-          value={displayValue(selectedFurniture.width ?? getCatalogItem(selectedFurniture.catalogId)?.width ?? 50)}
+          value={displayValue(furnitureSize ? furnitureSize.width : (selectedFurniture.width ?? getCatalogItem(selectedFurniture.catalogId)?.width ?? 50))}
           oninput={onFurnitureWidth} onblur={onFurnitureWidth} min={settings.units === 'imperial' ? 1 / 2.54 : 1} step="any"
-          class="w-full px-2 py-1 border border-gray-200 rounded text-sm" 
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm font-medium" 
         />
       </label>
       <label class="block">
         <span class="text-xs text-gray-500">{$t('furnitureProperties.depth')} ({unitLabel()})</span>
         <input 
           type="number" 
-          value={displayValue(selectedFurniture.depth ?? getCatalogItem(selectedFurniture.catalogId)?.depth ?? 50)}
+          value={displayValue(furnitureSize ? furnitureSize.depth : (selectedFurniture.depth ?? getCatalogItem(selectedFurniture.catalogId)?.depth ?? 50))}
           oninput={onFurnitureDepth} onblur={onFurnitureDepth} min={settings.units === 'imperial' ? 1 / 2.54 : 1} step="any"
-          class="w-full px-2 py-1 border border-gray-200 rounded text-sm" 
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm font-medium" 
         />
       </label>
       <label class="block">
         <span class="text-xs text-gray-500">{$t('openingProperties.height')} ({unitLabel()})</span>
         <input 
           type="number" 
-          value={displayValue(selectedFurniture.height ?? getCatalogItem(selectedFurniture.catalogId)?.height ?? 50)}
+          value={displayValue(furnitureSize ? furnitureSize.height : (selectedFurniture.height ?? getCatalogItem(selectedFurniture.catalogId)?.height ?? 50))}
           oninput={onFurnitureHeight} onblur={onFurnitureHeight} min={settings.units === 'imperial' ? 1 / 2.54 : 1} step="any"
-          class="w-full px-2 py-1 border border-gray-200 rounded text-sm" 
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm font-medium" 
         />
       </label>
       
@@ -738,9 +769,9 @@
         <span class="text-xs text-gray-500">{$t('furnitureProperties.rotation')}</span>
         <input 
           type="number" 
-          value={selectedFurniture.rotation}
+          value={Math.round(selectedFurniture.rotation || 0)}
           oninput={onFurnitureRotation} onblur={onFurnitureRotation} step="any"
-          class="w-full px-2 py-1 border border-gray-200 rounded text-sm" 
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm font-medium" 
         />
       </label>
 
